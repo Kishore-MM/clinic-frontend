@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 
 // --- Mock Data ---
@@ -18,7 +20,7 @@ const initialQueue = [
 const initialAppointments = [
     { id: 1, patientName: 'Alice Brown', doctorName: 'Dr. Smith', time: '10:00 AM', status: 'Booked' },
     { id: 2, patientName: 'Charlie Davis', doctorName: 'Dr. Johnson', time: '11:30 AM', status: 'Booked' },
-    { id: 3, patientName: 'Eva White', doctorName: 'Dr. Lee', time: '2:00 PM', status: 'Booked' },
+    { id: 3, name: 'Eva White', doctorName: 'Dr. Lee', time: '2:00 PM', status: 'Booked' },
 ];
 
 // --- Helper Components ---
@@ -52,6 +54,10 @@ const QueueManagement = ({ queue, setQueue }) => {
         setQueue(queue.map(p => p.id === id ? { ...p, status: newStatus } : p));
     };
 
+    const removePatient = (id) => {
+        setQueue(queue.filter(p => p.id !== id));
+    };
+
     return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
             <h2 className="text-2xl font-bold text-white mb-4">Queue Management</h2>
@@ -75,7 +81,7 @@ const QueueManagement = ({ queue, setQueue }) => {
                                 <option>Completed</option>
                             </select>
                             <PriorityBadge priority={patient.priority} />
-                            <button className="text-red-500 hover:text-red-400">&times;</button>
+                            <button onClick={() => removePatient(patient.id)} className="text-red-500 hover:text-red-400 text-2xl leading-none">&times;</button>
                         </div>
                     </div>
                 ))}
