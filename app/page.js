@@ -1,103 +1,217 @@
-import Image from "next/image";
+import React, { useState, useEffect } from 'react';
 
-export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+// --- Mock Data ---
+// In a real application, this data would come from your NestJS backend API.
+const initialDoctors = [
+    { id: 1, name: 'Dr. Smith', specialty: 'General Practice', status: 'Available', nextAvailable: 'Now' },
+    { id: 2, name: 'Dr. Johnson', specialty: 'Pediatrics', status: 'Busy', nextAvailable: '2:30 PM' },
+    { id: 3, name: 'Dr. Lee', specialty: 'Cardiology', status: 'Off Duty', nextAvailable: 'Tomorrow 9:00 AM' },
+    { id: 4, name: 'Dr. Patel', specialty: 'Dermatology', status: 'Available', nextAvailable: 'Now' },
+];
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+const initialQueue = [
+    { id: 1, name: 'John Doe', arrival: '09:30 AM', wait: '15 min', status: 'Waiting', priority: 'Normal' },
+    { id: 2, name: 'Jane Smith', arrival: '09:45 AM', wait: '0 min', status: 'With Doctor', priority: 'Normal' },
+    { id: 3, name: 'Bob Johnson', arrival: '10:00 AM', wait: '5 min', status: 'Waiting', priority: 'Urgent' },
+];
+
+const initialAppointments = [
+    { id: 1, patientName: 'Alice Brown', doctorName: 'Dr. Smith', time: '10:00 AM', status: 'Booked' },
+    { id: 2, patientName: 'Charlie Davis', doctorName: 'Dr. Johnson', time: '11:30 AM', status: 'Booked' },
+    { id: 3, patientName: 'Eva White', doctorName: 'Dr. Lee', time: '2:00 PM', status: 'Booked' },
+];
+
+// --- Helper Components ---
+const StatusBadge = ({ status }) => {
+    const baseClasses = "text-xs font-medium me-2 px-2.5 py-0.5 rounded-full";
+    const statusMap = {
+        Available: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+        Busy: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+        "Off Duty": "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+        Booked: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+        Waiting: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
+        "With Doctor": "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+        Completed: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+        Canceled: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+    };
+    return <span className={`${baseClasses} ${statusMap[status]}`}>{status}</span>;
+};
+
+const PriorityBadge = ({ priority }) => {
+    const baseClasses = "text-xs font-semibold px-2.5 py-0.5 rounded";
+    const priorityMap = {
+        Normal: "bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-100",
+        Urgent: "bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-200",
+    };
+    return <span className={`${baseClasses} ${priorityMap[priority]}`}>{priority}</span>;
+}
+
+// --- Main Components ---
+const QueueManagement = ({ queue, setQueue }) => {
+    const updateStatus = (id, newStatus) => {
+        setQueue(queue.map(p => p.id === id ? { ...p, status: newStatus } : p));
+    };
+
+    return (
+        <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-bold text-white mb-4">Queue Management</h2>
+            <div className="space-y-4">
+                {queue.map((patient, index) => (
+                    <div key={patient.id} className="bg-gray-900 p-4 rounded-lg flex items-center justify-between hover:bg-gray-700 transition-colors duration-200">
+                        <div className="flex items-center">
+                            <span className="text-gray-400 mr-4">{index + 1}</span>
+                            <div>
+                                <p className="font-bold text-white">{patient.name}</p>
+                                <p className="text-sm text-gray-400">Arrival: {patient.arrival} &bull; Est. Wait: {patient.wait}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            <select 
+                                value={patient.status}
+                                onChange={(e) => updateStatus(patient.id, e.target.value)}
+                                className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2">
+                                <option>Waiting</option>
+                                <option>With Doctor</option>
+                                <option>Completed</option>
+                            </select>
+                            <PriorityBadge priority={patient.priority} />
+                            <button className="text-red-500 hover:text-red-400">&times;</button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <button className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+                Add New Patient to Queue
+            </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+    );
+};
+
+const AvailableDoctors = ({ doctors }) => (
+    <div className="bg-gray-800 p-6 rounded-lg shadow-lg mt-8">
+        <h2 className="text-2xl font-bold text-white mb-4">Available Doctors</h2>
+        <div className="space-y-4">
+            {doctors.map(doctor => (
+                <div key={doctor.id} className="bg-gray-900 p-4 rounded-lg flex items-center justify-between hover:bg-gray-700 transition-colors duration-200">
+                    <div>
+                        <p className="font-bold text-white">{doctor.name}</p>
+                        <p className="text-sm text-gray-400">{doctor.specialty}</p>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                        <StatusBadge status={doctor.status} />
+                        <p className="text-sm text-gray-300">Next available: {doctor.nextAvailable}</p>
+                        <button className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors duration-200">
+                            View Schedule
+                        </button>
+                    </div>
+                </div>
+            ))}
+        </div>
     </div>
-  );
+);
+
+const AppointmentManagement = ({ appointments, setAppointments }) => {
+    // Basic calendar generation for display purposes
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const calendarDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    const emptyDays = Array.from({ length: firstDayOfMonth }, (_, i) => null);
+    const allDays = [...emptyDays, ...calendarDays];
+
+    return (
+        <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-bold text-white mb-4">Appointment Management</h2>
+            <div className="flex flex-col md:flex-row gap-8">
+                {/* Calendar */}
+                <div className="flex-shrink-0 bg-gray-900 p-4 rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                        <button className="text-gray-400">&lt;</button>
+                        <h3 className="font-bold text-white">{today.toLocaleString('default', { month: 'long' })} {year}</h3>
+                        <button className="text-gray-400">&gt;</button>
+                    </div>
+                    <div className="grid grid-cols-7 gap-2 text-center text-sm">
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => <div key={day} className="text-gray-400 font-bold">{day}</div>)}
+                        {allDays.map((day, index) => (
+                            <div key={index} className={`p-1 rounded-full ${day ? 'text-white' : ''} ${day === today.getDate() ? 'bg-blue-600' : ''}`}>
+                                {day}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                {/* Appointments List */}
+                <div className="flex-grow">
+                    <div className="space-y-4">
+                        {appointments.map(appt => (
+                            <div key={appt.id} className="bg-gray-900 p-4 rounded-lg flex items-center justify-between hover:bg-gray-700 transition-colors duration-200">
+                                <div>
+                                    <p className="font-bold text-white">{appt.patientName}</p>
+                                    <p className="text-sm text-gray-400">w/ {appt.doctorName} at {appt.time}</p>
+                                </div>
+                                <StatusBadge status={appt.status} />
+                            </div>
+                        ))}
+                    </div>
+                     <button className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+                        Schedule New Appointment
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// --- App Component ---
+export default function App() {
+    const [activeTab, setActiveTab] = useState('Queue');
+    const [queue, setQueue] = useState(initialQueue);
+    const [doctors, setDoctors] = useState(initialDoctors);
+    const [appointments, setAppointments] = useState(initialAppointments);
+
+    const TabButton = ({ tabName, children }) => {
+        const isActive = activeTab === tabName;
+        return (
+            <button
+                onClick={() => setActiveTab(tabName)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    isActive
+                        ? 'bg-gray-900 text-white'
+                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`}
+            >
+                {children}
+            </button>
+        );
+    };
+
+    return (
+        <div className="bg-gray-900 text-white min-h-screen font-sans">
+            <div className="container mx-auto p-4 md:p-8">
+                <header className="flex justify-between items-center mb-8">
+                    <h1 className="text-3xl font-bold">Front Desk Dashboard</h1>
+                    <div className="flex items-center space-x-2 bg-gray-800 border border-gray-700 rounded-lg p-1">
+                        <TabButton tabName="Queue">Queue Management</TabButton>
+                        <TabButton tabName="Appointments">Appointment Management</TabButton>
+                    </div>
+                </header>
+
+                <main>
+                    {activeTab === 'Queue' && (
+                        <>
+                            <QueueManagement queue={queue} setQueue={setQueue} />
+                            <AvailableDoctors doctors={doctors} />
+                        </>
+                    )}
+                    {activeTab === 'Appointments' && <AppointmentManagement appointments={appointments} setAppointments={setAppointments} />}
+                </main>
+                
+                <footer className="text-center text-gray-500 mt-12 text-sm">
+                    <p>This is a frontend prototype. Data is for demonstration purposes only.</p>
+                </footer>
+            </div>
+        </div>
+    );
 }
