@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 
 // --- Helper Components ---
-// These components remain the same as before.
 const StatusBadge = ({ status }) => {
     const baseClasses = "text-xs font-medium me-2 px-2.5 py-0.5 rounded-full";
     const statusMap = {
@@ -28,63 +27,117 @@ const PriorityBadge = ({ priority }) => {
     return <span className={`${baseClasses} ${priorityMap[priority]}`}>{priority}</span>;
 }
 
+// --- New Modal Component ---
+const NewPatientModal = ({ isOpen, onClose, onAddPatient }) => {
+    const [patientName, setPatientName] = useState('');
+    const [priority, setPriority] = useState('Normal');
 
-// --- Main Components ---
-// These have been updated to handle real data and loading states.
-const QueueManagement = ({ queue, setQueue, isLoading }) => {
-    // In a real app, these functions would make POST/DELETE requests to your API
-    const updateStatus = (id, newStatus) => {
-        console.log(`Updating patient ${id} to ${newStatus}`);
-        // Example API call:
-        // fetch(`https://your-backend-url.onrender.com/queue/${id}`, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
+    if (!isOpen) return null;
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!patientName.trim()) return;
+        onAddPatient({ name: patientName, priority });
+        setPatientName('');
+        setPriority('Normal');
     };
 
-    const removePatient = (id) => {
-        console.log(`Removing patient ${id}`);
-        // Example API call:
-        // fetch(`https://your-backend-url.onrender.com/queue/${id}`, { method: 'DELETE' });
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+            <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
+                <h3 className="text-xl font-bold text-white mb-4">Add New Patient to Queue</h3>
+                <form onSubmit={handleSubmit}>
+                    <div className="mb-4">
+                        <label htmlFor="patientName" className="block text-sm font-medium text-gray-300 mb-1">Patient Name</label>
+                        <input
+                            type="text"
+                            id="patientName"
+                            value={patientName}
+                            onChange={(e) => setPatientName(e.target.value)}
+                            className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                            placeholder="e.g., John Doe"
+                            required
+                        />
+                    </div>
+                    <div className="mb-6">
+                        <label htmlFor="priority" className="block text-sm font-medium text-gray-300 mb-1">Priority</label>
+                        <select
+                            id="priority"
+                            value={priority}
+                            onChange={(e) => setPriority(e.target.value)}
+                            className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                        >
+                            <option>Normal</option>
+                            <option>Urgent</option>
+                        </select>
+                    </div>
+                    <div className="flex justify-end gap-4">
+                        <button type="button" onClick={onClose} className="py-2 px-4 text-sm font-medium text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button type="submit" className="py-2 px-4 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                            Add Patient
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+
+// --- Main Components ---
+const QueueManagement = ({ queue, setQueue, onAddPatient, isLoading }) => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const handleAddPatient = async (newPatientData) => {
+        // This function is passed up to the App component to handle the API call
+        await onAddPatient(newPatientData);
+        setIsModalOpen(false); // Close modal on success
     };
 
     if (isLoading) return <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-center">Loading Queue...</div>
 
     return (
-        <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-            <h2 className="text-2xl font-bold text-white mb-4">Queue Management</h2>
-            <div className="space-y-4">
-                {queue.map((patient, index) => (
-                    <div key={patient.id} className="bg-gray-900 p-4 rounded-lg flex items-center justify-between hover:bg-gray-700 transition-colors duration-200">
-                        <div className="flex items-center">
-                            <span className="text-gray-400 mr-4">{index + 1}</span>
-                            <div>
-                                <p className="font-bold text-white">{patient.name}</p>
-                                <p className="text-sm text-gray-400">Arrival: {patient.arrival} &bull; Est. Wait: {patient.wait}</p>
+        <>
+            <NewPatientModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAddPatient={handleAddPatient} />
+            <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 className="text-2xl font-bold text-white mb-4">Queue Management</h2>
+                <div className="space-y-4">
+                    {queue.map((patient, index) => (
+                        <div key={patient.id} className="bg-gray-900 p-4 rounded-lg flex items-center justify-between hover:bg-gray-700 transition-colors duration-200">
+                           <div className="flex items-center">
+                                <span className="text-gray-400 mr-4">{index + 1}</span>
+                                <div>
+                                    <p className="font-bold text-white">{patient.name}</p>
+                                    <p className="text-sm text-gray-400">Arrival: {patient.arrival} &bull; Est. Wait: {patient.wait}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                                <select 
+                                    defaultValue={patient.status}
+                                    className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2">
+                                    <option>Waiting</option>
+                                    <option>With Doctor</option>
+                                    <option>Completed</option>
+                                </select>
+                                <PriorityBadge priority={patient.priority} />
+                                <button className="text-red-500 hover:text-red-400 text-2xl leading-none">&times;</button>
                             </div>
                         </div>
-                        <div className="flex items-center space-x-4">
-                            <select 
-                                defaultValue={patient.status}
-                                onChange={(e) => updateStatus(patient.id, e.target.value)}
-                                className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2">
-                                <option>Waiting</option>
-                                <option>With Doctor</option>
-                                <option>Completed</option>
-                            </select>
-                            <PriorityBadge priority={patient.priority} />
-                            <button onClick={() => removePatient(patient.id)} className="text-red-500 hover:text-red-400 text-2xl leading-none">&times;</button>
-                        </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
+                <button onClick={() => setIsModalOpen(true)} className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+                    Add New Patient to Queue
+                </button>
             </div>
-            <button className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
-                Add New Patient to Queue
-            </button>
-        </div>
+        </>
     );
 };
 
+// AvailableDoctors and AppointmentManagement components remain the same for now
 const AvailableDoctors = ({ doctors, isLoading }) => {
     if (isLoading) return <div className="bg-gray-800 p-6 rounded-lg shadow-lg mt-8 text-center">Loading Doctors...</div>
-
     return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-lg mt-8">
             <h2 className="text-2xl font-bold text-white mb-4">Available Doctors</h2>
@@ -110,7 +163,6 @@ const AvailableDoctors = ({ doctors, isLoading }) => {
 };
 
 const AppointmentManagement = ({ appointments, isLoading }) => {
-    // Calendar logic remains the same
     const today = new Date();
     const year = today.getFullYear();
     const month = today.getMonth();
@@ -121,12 +173,10 @@ const AppointmentManagement = ({ appointments, isLoading }) => {
     const allDays = [...emptyDays, ...calendarDays];
 
     if (isLoading) return <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-center">Loading Appointments...</div>
-
     return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
             <h2 className="text-2xl font-bold text-white mb-4">Appointment Management</h2>
             <div className="flex flex-col md:flex-row gap-8">
-                {/* Calendar */}
                 <div className="flex-shrink-0 bg-gray-900 p-4 rounded-lg">
                     <div className="flex justify-between items-center mb-2">
                         <button className="text-gray-400">&lt;</button>
@@ -142,7 +192,6 @@ const AppointmentManagement = ({ appointments, isLoading }) => {
                         ))}
                     </div>
                 </div>
-                {/* Appointments List */}
                 <div className="flex-grow">
                     <div className="space-y-4">
                         {appointments.map(appt => (
@@ -179,46 +228,99 @@ export default function App() {
     // const API_URL = process.env.NEXT_PUBLIC_API_URL;
     const API_URL = "https://your-backend-url.onrender.com"; 
 
+    const fetchData = async () => {
+        // For the preview environment, we use mock data to avoid fetch errors.
+        // In your real app, the fetch logic below will run.
+        const mockDoctors = [
+            { id: 1, name: 'Dr. Smith', specialty: 'General Practice', status: 'Available', nextAvailable: 'Now' },
+            { id: 2, name: 'Dr. Johnson', specialty: 'Pediatrics', status: 'Busy', nextAvailable: '2:30 PM' },
+            { id: 3, name: 'Dr. Lee', specialty: 'Cardiology', status: 'Off Duty', nextAvailable: 'Tomorrow 9:00 AM' },
+            { id: 4, name: 'Dr. Patel', specialty: 'Dermatology', status: 'Available', nextAvailable: 'Now' },
+        ];
+        const mockQueue = [
+            { id: 1, name: 'John Doe', arrival: '09:30 AM', wait: '15 min', status: 'Waiting', priority: 'Normal' },
+            { id: 2, name: 'Jane Smith', arrival: '09:45 AM', wait: '0 min', status: 'With Doctor', priority: 'Normal' },
+        ];
+        const mockAppointments = [
+            { id: 1, patientName: 'Alice Brown', doctorName: 'Dr. Smith', time: '10:00 AM', status: 'Booked' },
+        ];
+        setDoctors(mockDoctors);
+        setQueue(mockQueue);
+        setAppointments(mockAppointments);
+        setIsLoading(false);
+
+        // This is the actual fetch logic for your deployed app
+        /*
+        if (!API_URL) {
+            setError("API URL is not configured. Please set NEXT_PUBLIC_API_URL environment variable.");
+            setIsLoading(false);
+            return;
+        }
+        
+        setIsLoading(true);
+        try {
+            const [doctorsRes, queueRes, appointmentsRes] = await Promise.all([
+                fetch(`${API_URL}/doctors`),
+                fetch(`${API_URL}/queue`),
+                fetch(`${API_URL}/appointments`)
+            ]);
+
+            if (!doctorsRes.ok || !queueRes.ok || !appointmentsRes.ok) {
+                throw new Error('Failed to fetch data from the server.');
+            }
+
+            const doctorsData = await doctorsRes.json();
+            const queueData = await queueRes.json();
+            const appointmentsData = await appointmentsRes.json();
+
+            setDoctors(doctorsData);
+            setQueue(queueData);
+            setAppointments(appointmentsData);
+            setError(null);
+
+        } catch (err) {
+            setError(err.message);
+            console.error("Error fetching data:", err);
+        } finally {
+            setIsLoading(false);
+        }
+        */
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            if (!API_URL) {
-                setError("API URL is not configured.");
-                setIsLoading(false);
-                return;
-            }
-            
-            setIsLoading(true);
-            try {
-                // Since the backend isn't fully built, we'll use mock data for now
-                // to prevent fetch errors in the preview.
-                const mockDoctors = [
-                    { id: 1, name: 'Dr. Smith', specialty: 'General Practice', status: 'Available', nextAvailable: 'Now' },
-                    { id: 2, name: 'Dr. Johnson', specialty: 'Pediatrics', status: 'Busy', nextAvailable: '2:30 PM' },
-                ];
-                const mockQueue = [
-                    { id: 1, name: 'John Doe', arrival: '09:30 AM', wait: '15 min', status: 'Waiting', priority: 'Normal' },
-                    { id: 2, name: 'Jane Smith', arrival: '09:45 AM', wait: '0 min', status: 'With Doctor', priority: 'Normal' },
-                ];
-                const mockAppointments = [
-                    { id: 1, patientName: 'Alice Brown', doctorName: 'Dr. Smith', time: '10:00 AM', status: 'Booked' },
-                ];
-
-                setDoctors(mockDoctors);
-                setQueue(mockQueue);
-                setAppointments(mockAppointments);
-                setError(null);
-
-            } catch (err) {
-                setError("Failed to fetch data. Displaying mock data instead.");
-                console.error("Error fetching data:", err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         fetchData();
-    }, [API_URL]);
+    }, []); // Removed API_URL from dependency array for preview
 
+    const handleAddPatient = async (newPatientData) => {
+        // This is a mock function for the preview.
+        const newPatient = {
+            id: Math.random(),
+            ...newPatientData,
+            arrival: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            wait: 'N/A',
+            status: 'Waiting',
+        };
+        setQueue(prevQueue => [...prevQueue, newPatient]);
+
+        // This is the actual API call logic for your deployed app
+        /*
+        if (!API_URL) return;
+        try {
+            const response = await fetch(`${API_URL}/queue`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newPatientData),
+            });
+            if (!response.ok) {
+                throw new Error('Failed to add patient.');
+            }
+            // Re-fetch the queue to show the new patient
+            fetchData(); 
+        } catch (err) {
+            setError(err.message);
+        }
+        */
+    };
 
     const TabButton = ({ tabName, children }) => {
         const isActive = activeTab === tabName;
@@ -252,7 +354,7 @@ export default function App() {
                     
                     {activeTab === 'Queue' && (
                         <>
-                            <QueueManagement queue={queue} setQueue={setQueue} isLoading={isLoading} />
+                            <QueueManagement queue={queue} setQueue={setQueue} onAddPatient={handleAddPatient} isLoading={isLoading} />
                             <AvailableDoctors doctors={doctors} isLoading={isLoading} />
                         </>
                     )}
